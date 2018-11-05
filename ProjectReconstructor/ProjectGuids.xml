@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8" ?>
-<Projects>
+<Projects ProjectName="MKS">
   <Project Name="CommonEmail" Guid="{8a7f9dc7-4186-47f8-b38c-428155fbb739}" />
   <Project Name="CommonComparer" Guid="{73062de6-8d62-41fc-b6ce-f41887f80760}" />
   <Project Name="VendorNewtonsoft" Guid="{46eaeeff-19d9-40ba-9b69-f6e5e5fe4736}" />
