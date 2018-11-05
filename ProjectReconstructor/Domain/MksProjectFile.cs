@@ -15,6 +15,23 @@ namespace ProjectReconstructor
 {
     public class MksProjectFile
     {
+        protected bool Equals(MksProjectFile other)
+        {
+            return string.Equals(Name, other.Name);
+        }
+
+        public override bool Equals(object obj)
+        {
+            if (ReferenceEquals(null, obj)) return false;
+            if (ReferenceEquals(this, obj)) return true;
+            if (obj.GetType() != this.GetType()) return false;
+            return Equals((MksProjectFile) obj);
+        }
+
+        public override int GetHashCode()
+        {
+            return (Name != null ? Name.GetHashCode() : 0);
+        }
 
 
         #region Props
@@ -23,6 +40,8 @@ namespace ProjectReconstructor
         /// This is the path relative to the new solutionfile
         /// </summary>
         public string RelativePath { get; set; }
+
+        public string AssemblyName { get; set; }
 
         /// <summary>
         /// This is the absolute path to the target
@@ -65,43 +84,18 @@ namespace ProjectReconstructor
         /// These are the raw Project Items that are grouped into this project
         /// file.
         /// </summary>
-        public IEnumerable<MksProjectItem> ProjectItems { get; set; }
+        public IList<MksProjectItem> ProjectItems { get; set; }
 
         #endregion
 
 
         public MksProjectFile()
         {
-
+            ProjectItems = new List<MksProjectItem>();
         }
 
 
 
-        //public MksProjectFile(string directoryPath, string nameToUSe)
-        //{
 
-        //    ProjectItems = projectItems;
-
-        //    References = 
-        //}
-
-
-        protected bool Equals(MksProjectFile other)
-        {
-            return string.Equals(RelativePath, other.RelativePath);
-        }
-
-        public override bool Equals(object obj)
-        {
-            if (ReferenceEquals(null, obj)) return false;
-            if (ReferenceEquals(this, obj)) return true;
-            if (obj.GetType() != this.GetType()) return false;
-            return Equals((MksProjectFile) obj);
-        }
-
-        public override int GetHashCode()
-        {
-            return (RelativePath != null ? RelativePath.GetHashCode() : 0);
-        }
     }
 }

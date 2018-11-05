@@ -39,6 +39,7 @@ namespace ProjectReconstructor.Infracture
     public class FolderFileManager
     {
         private readonly string _sourceDir;
+        private readonly string _rootOfSource;
         private readonly string _targetDir;
         private readonly string _nameSpacePrefix;
         private readonly ProjectItem[] _allFiles;
@@ -46,7 +47,7 @@ namespace ProjectReconstructor.Infracture
 
         private ILog logger = LogManager.GetLogger(typeof(FolderFileManager));
         private IEnumerable<string> sourceFiles;
-        private IEnumerable<DirectoryInfo> majorDirs;
+        private IEnumerable<DirectoryInfo> _majorDirs;
         private DirectoryInfo root;
         
         static string _pattern = @".*Source\\" + @"(.*)";
@@ -65,9 +66,10 @@ namespace ProjectReconstructor.Infracture
         /// <param name="targetDir"></param>
         /// <param name="compileFileItems">A list of project items. All of them are assumed to be of ItemType Compile</param>
         /// <param name="nameSpacePrefix"> We will prepend all generated namespaces with this. </param>
-        public FolderFileManager(string sourceDir, string targetDir, IEnumerable<ProjectItem> compileFileItems, string nameSpacePrefix)
+        public FolderFileManager(string sourceDir, string rootOfSource, string targetDir, IEnumerable<ProjectItem> compileFileItems, string nameSpacePrefix)
         {
             _sourceDir = sourceDir;
+            _rootOfSource = rootOfSource;
             _targetDir = targetDir;
             _nameSpacePrefix = nameSpacePrefix;
             _template = XDocument.Parse(File.ReadAllText(@".\template.csproj"));
@@ -100,8 +102,8 @@ namespace ProjectReconstructor.Infracture
 
             //now that we have the files grouped, let's walk through each item and collect the references and namespaces
             UpdateReferecesAndNameSpaces(mksProjectFiles);
-            root = new DirectoryInfo(sourceDir);
-            majorDirs = root.GetDirectories();
+            root = new DirectoryInfo(Path.Combine(sourceDir, rootOfSource));
+            _majorDirs = root.GetDirectories();
         }
 
         public List<MksProjectFile> MksProjectFiles
@@ -140,7 +142,12 @@ namespace ProjectReconstructor.Infracture
         private MksProjectFile GenerateProjectFile(GenerateProjectFileOptions generateProjectFileOptions)
         {
             var projectSkeleton = generateProjectFileOptions.ProjectName.Split(new string[] {"_"}, StringSplitOptions.RemoveEmptyEntries);
-            var projectName = projectSkeleton.ConcatToString("");
+            string projectName;
+            if (projectSkeleton.Length == 2)
+                projectName = projectSkeleton[0];
+            else
+                projectName = projectSkeleton.ConcatToString("");
+
             var subDir = projectSkeleton.ConcatToString("\\");
             var fileName = generateProjectFileOptions.ProjectName.ConcatToString("") + ".csproj";
             var fullNameSpace = generateProjectFileOptions.Prefix + (generateProjectFileOptions.Prefix.EndsWith(".") ? "" : ".") + projectSkeleton.ConcatToString(".");
@@ -201,7 +208,7 @@ namespace ProjectReconstructor.Infracture
 
         public void CreateDirectoryStructure()
         {
-            foreach (var dir in majorDirs)
+            foreach (var dir in _majorDirs)
             {
                 
                 //Does the dir have any files in it
@@ -216,8 +223,15 @@ namespace ProjectReconstructor.Infracture
 
         private void GenerateProjectTemplate(DirectoryInfo dir, FileInfo[] majorDirFile)
         {
-            logger.Info($"ProjectName: {dir.Name}");
-            var projectName = ProjectName(dir.Name);
+            logger.Info($"ProjectName: {dir.FullName}");
+            var relativeSourceIndex = dir.FullName.IndexOf(_rootOfSource);
+            var relativePath = dir.FullName.Substring(relativeSourceIndex);
+            var projectName = ProjectName(relativePath);
+
+            //get the mksInfo from mksProjectFiles
+            var mksProj = mksProjectFiles.Single(c => c.Name == projectName);
+
+            
         }
 
         private string ProjectName(string relativePath)
@@ -229,7 +243,7 @@ namespace ProjectReconstructor.Infracture
             var projectName = "";
             projectName = projectName  + directoryStructure[0];
 
-            if (directoryStructure.Length == 2)
+            if (directoryStructure.Length == 1)
                 ;
             else
                 projectName = projectName + "_" + directoryStructure[1];
