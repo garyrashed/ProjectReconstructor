@@ -7,7 +7,9 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Xml.Linq;
 using Microsoft.Build.Evaluation;
-using Microsoft.CodeAnalysis.Operations;
+//using Microsoft.CodeAnalysis.Operations;
+using Microsoft.CodeAnalysis;
+using ProjectReconstructor.Domain;
 
 namespace ProjectReconstructor
 {
@@ -23,17 +25,18 @@ namespace ProjectReconstructor
         public string RelativePath { get; set; }
 
         /// <summary>
-        /// This is the absolute path.
+        /// This is the absolute path to the target
         /// </summary>
-        public string AbsolutePath { get; set; }
+        public string AbsoluteTargetPath { get; set; }
 
+        public string AbsoluteSourePath { get; set; }
         /// <summary>
         /// The guid of the file
         /// </summary>
-        public string Guid { get; }
+        public string Guid { get; set; }
 
         //the root name space of this project
-        public string NameSpace { get; }
+        public string NameSpace { get; set; }
         /// <summary>
         /// This is the name of the csproj file without the .csproj name
         /// 
@@ -44,6 +47,8 @@ namespace ProjectReconstructor
         /// This is the name of the file. ex: foo.csproj
         /// </summary>
         public string FileName { get; set; }
+
+        public string XML { get; set; }
 
         /// <summary>
         /// this is a string list of al the references we think should be contained
@@ -60,24 +65,16 @@ namespace ProjectReconstructor
         /// These are the raw Project Items that are grouped into this project
         /// file.
         /// </summary>
-        public IEnumerable<ProjectItem> ProjectItems { get; }
+        public IEnumerable<MksProjectItem> ProjectItems { get; set; }
 
         #endregion
 
 
-        public MksProjectFile(string projectName, string RootDir, string targeDir)
+        public MksProjectFile()
         {
-            var projectSkeleton = projectName.Split(new string[] {"_"}, StringSplitOptions.RemoveEmptyEntries);
-            RelativePath = Path.Combine(RootDir, projectSkeleton.ConcatToString("\\"));
-            FileName = projectName.ConcatToString("") + ".csproj";
-            AbsolutePath = Path.Combine(targeDir, RootDir, RelativePath, FileName);
-            Guid = LookupGuid(projectName);
+
         }
 
-        private string LookupGuid(string projectName)
-        {
-            if(!File.Exists(@".\ProjectGuid"))
-        }
 
 
         //public MksProjectFile(string directoryPath, string nameToUSe)

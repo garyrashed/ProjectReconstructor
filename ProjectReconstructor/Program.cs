@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Configuration;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -56,7 +57,7 @@ namespace ProjectReconstructor
 
         private void CreateDirectoryStructure(string sourceDirPath, string targetDirPath)
         {
-            var fileDir = new FolderFileManager(sourceDirPath, targetDirPath, compileFiles, "MKS.Legacy.");
+            var fileDir = new FolderFileManager(Path.GetDirectoryName(sourceDirPath), targetDirPath, compileFiles, "MKS.Legacy.");
             fileDir.CreateDirectoryStructure();
         }
     }

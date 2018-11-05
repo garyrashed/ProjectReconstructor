@@ -17,7 +17,7 @@ namespace ProjectReconstructor.DependencyWalker
         public Dictionary<string, ICollection<NamespaceDeclarationSyntax>> NameSpacesDictionary { get; } = new Dictionary<string, ICollection<NamespaceDeclarationSyntax>>();
 
 
-        private void ProcessFile(string file)
+        public void ProcessFile(string file)
         {
             
             try
@@ -31,7 +31,7 @@ namespace ProjectReconstructor.DependencyWalker
                 var tree = CSharpSyntaxTree.ParseText(csharpText);
                 var root = tree.GetCompilationUnitRoot();
 
-                var workingFile = file;
+                _workingFile = file;
 
                 this.Visit(root);
 

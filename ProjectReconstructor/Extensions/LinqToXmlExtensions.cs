@@ -24,12 +24,39 @@ namespace ProjectReconstructor.Extensions
 
         private static IEnumerable<XElement> FindMandatoryElements(XElement root, string localName)
         {
-            var candidates = root.Elements().Where(c => c.Name.LocalName == localName).ToArray();
+            var xName = XName.Get(localName, root.GetDefaultNamespace().NamespaceName);
+            var candidates = root.Elements(xName).ToArray();
+            //var candidates = root.Elements().Where(c => c.Name.LocalName == localName).ToArray();
 
-            if(candidates.Length == 0)
-                throw new MandatoryXElementNotFound($"Could not find the element in {root.Name.LocalName}", localName, root);
+            if (candidates.Length == 0)
+                throw new MandatoryXElementNotFound($"Could not find the element in {root.Name.LocalName}", localName,
+                    root);
 
             return candidates;
+        }
+
+
+        public static IEnumerable<XElement> FindMandatoryElementsWithAttributeName(this XElement root, string localName,
+            string attributeName)
+        {
+            var candidates = FindMandatoryElements(root, localName);
+            var xName = XName.Get(attributeName, root.GetDefaultNamespace().NamespaceName);
+            return candidates.Where(c => c.Attributes(xName).Any());
+        }
+
+        public static XElement FindMandatoryElementWithAttributeName(this XElement root, string localName,
+            string attributeName, string attributeValue)
+        {
+            var candidateElements = FindMandatoryElements(root, localName);
+            var xName = XName.Get(attributeName, root.GetDefaultNamespace().NamespaceName);
+            var candidate = candidateElements.Where(c => c.Attributes(xName).Any()).ToArray();
+            if (candidate.Length == 0)
+                throw new MandatoryXElementNotFound(
+                    $"Could not find the element with and attribute named {attributeName}", attributeName, root);
+
+            var match = candidate.Single(c => c.Attribute(attributeName).Value == attributeValue);
+
+            return match;
         }
 
         /// <summary>
@@ -48,7 +75,6 @@ namespace ProjectReconstructor.Extensions
         }
 
 
-
         public static XDocument CopyDoc(this XDocument document)
         {
             return XDocument.Parse(document.ToString());
@@ -65,18 +91,17 @@ namespace ProjectReconstructor.Extensions
         /// <returns></returns>
 
 
-        public static FindMandatoryAttributeFromXElement(this XElement root, string attributeName)
-        {
-            
-        }
+        //public static FindMandatoryAttributeFromXElement(this XElement root, string attributeName)
+        //{
 
-        public static IEnumerable<XElement> FindXElementWithMandatoryAttributes(this XElement root, string attributeName)
-        {
-            var elements = root.Elements();
-            var candidateElements =  elements.Where(c => c.Attributes(attributeName).Any()).ToArray();
+        //}
+
+        //public static IEnumerable<XElement> FindXElementWithMandatoryAttributes(this XElement root, string attributeName)
+        //{
+        //    var elements = root.Elements();
+        //    var candidateElements =  elements.Where(c => c.Attributes(attributeName).Any()).ToArray();
 
 
-        }
-
+        //}
     }
 }

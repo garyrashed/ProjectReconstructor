@@ -11,6 +11,8 @@ using System.Xml;
 using System.Xml.Linq;
 using log4net;
 using Microsoft.Build.Evaluation;
+using ProjectReconstructor.DependencyWalker;
+using ProjectReconstructor.Domain;
 using ProjectReconstructor.Extensions;
 
 namespace ProjectReconstructor.Infracture
@@ -53,6 +55,7 @@ namespace ProjectReconstructor.Infracture
         private XElement _guidMap;
         private XNamespace _templateNameSpace;
         private XName ProjectGuidAttributeName;
+        List<MksProjectFile> mksProjectFiles;
 
 
         /// <summary>
@@ -72,6 +75,7 @@ namespace ProjectReconstructor.Infracture
             ProjectGuidAttributeName = XName.Get("Name", _nameSpacePrefix);
             _guidMap = XDocument.Load(@".\ProjectGuids.xml").Root;
             _nameSpacePrefix = ConfigurationManager.AppSettings["nameSpacePrefix"];
+            var compileSourceDir = ConfigurationManager.AppSettings["compileFilesRoot"];
 
             _allFiles = compileFileItems.Where(c => c.EvaluatedInclude.StartsWith("Source")).ToArray();
 
@@ -81,18 +85,50 @@ namespace ProjectReconstructor.Infracture
 
             var foo = new Dictionary<string, IEnumerable<ProjectItem>>();
 
+            
             //sort the source files into groups
-            SortProjectItems(projectGroupings);
+            SortProjectItems(ref projectGroupings);
+
+            mksProjectFiles = new List<MksProjectFile>();
 
             //foreach "project" generate the file in the targetDir.
             foreach (var item in projectGroupings)
             {
-                GenerateProjectFile(new GenerateProjectFileOptions(item.Key, item.Value, targetDir, _nameSpacePrefix, _guidMap));
+
+                mksProjectFiles.Add(GenerateProjectFile(new GenerateProjectFileOptions(item.Key, item.Value, targetDir, _nameSpacePrefix, _guidMap)));
             }
 
-
+            //now that we have the files grouped, let's walk through each item and collect the references and namespaces
+            UpdateReferecesAndNameSpaces(mksProjectFiles);
             root = new DirectoryInfo(sourceDir);
             majorDirs = root.GetDirectories();
+        }
+
+        public List<MksProjectFile> MksProjectFiles
+        {
+            get { return mksProjectFiles; }
+        }
+
+        private void UpdateReferecesAndNameSpaces(List<MksProjectFile> mksProjectFiles)
+        {
+            var walker = new CsharpFileWalker();
+            foreach (var mksProjectFile in mksProjectFiles)
+            {
+                var items = mksProjectFile.ProjectItems;
+                foreach (var item in items)
+                {
+                    walker.ProcessFile(item.AbsoluteSourcePath);
+                    if (walker.UsingsDictionary.ContainsKey(item.AbsoluteSourcePath)) 
+                    {
+                        item.References =  walker.UsingsDictionary[item.AbsoluteSourcePath]?
+                            .Select(c => c.ToString().Replace("using ", "").Replace(";", "")).ToArray();
+                    }
+                }
+
+                mksProjectFile.References = items.SelectMany(d => d.References ?? new []{string.Empty}).Distinct().ToArray();
+
+
+            }
         }
 
         /// <summary>
@@ -104,16 +140,29 @@ namespace ProjectReconstructor.Infracture
         private MksProjectFile GenerateProjectFile(GenerateProjectFileOptions generateProjectFileOptions)
         {
             var projectSkeleton = generateProjectFileOptions.ProjectName.Split(new string[] {"_"}, StringSplitOptions.RemoveEmptyEntries);
+            var projectName = projectSkeleton.ConcatToString("");
             var subDir = projectSkeleton.ConcatToString("\\");
             var fileName = generateProjectFileOptions.ProjectName.ConcatToString("") + ".csproj";
             var fullNameSpace = generateProjectFileOptions.Prefix + (generateProjectFileOptions.Prefix.EndsWith(".") ? "" : ".") + projectSkeleton.ConcatToString(".");
 
             var newPath = Path.Combine(generateProjectFileOptions.TargetDir, subDir,fileName);
 
-            GenerateProjectXML(generateProjectFileOptions.ProjectName, _guidMap, _template, newPath, fileName, fullNameSpace);
+            var mksProjectFile = new MksProjectFile();
+            mksProjectFile.AbsoluteTargetPath = newPath;
 
-            return newPath;
+            mksProjectFile.FileName = fileName;
+            var guidElement = _guidMap.FindMandatoryElementWithAttributeName("Project", "Name", projectName);
+            var guid = guidElement.Attribute("Guid").Value;
+            mksProjectFile.Guid = guid;
+            mksProjectFile.Name = projectName;
+            mksProjectFile.NameSpace = fullNameSpace;
+            mksProjectFile.ProjectItems = generateProjectFileOptions.ProjectItems.Select(c => new MksProjectItem(c, Path.Combine(_sourceDir, c.EvaluatedInclude), c.EvaluatedInclude, _targetDir)).ToArray();
+            var mksProjectFileXML = GenerateProjectXML(projectName, _guidMap, _template, fullNameSpace, mksProjectFile);
 
+            mksProjectFile.XML = mksProjectFileXML;
+
+
+            return mksProjectFile;
         }
 
         /// <summary>
@@ -124,21 +173,19 @@ namespace ProjectReconstructor.Infracture
         /// <param name="newPath"></param>
         /// <param name="fileName"></param>
         /// <param name="fullNameSpace"></param>
-        private MksProjectFile GenerateProjectXML(string projectName, XElement guidMap, XDocument template, string newPath, string fileName, string fullNameSpace)
+        private string GenerateProjectXML(string projectName, XElement guidMap, XDocument template,string nameSpace , MksProjectFile mksProjectFile)
         {
-            if (File.Exists(newPath))
-            {
-                File.Delete(newPath);
-            }
-
             var projFile = template.CopyDoc();
-            var guidElement = projFile.Root.FirstMandatoryElement("ProjectGuid");
+            var guidElement = guidMap.FindMandatoryElementWithAttributeName("Project", "Name", projectName);
+            var guid = guidElement.Attribute("Guid").Value;
+            projFile.Root.Descendants(XName.Get("ProjectGuid", projFile.Root.GetDefaultNamespace().NamespaceName)).First().SetValue(guid);
+            projFile.Root.Descendants(XName.Get("RootNamespace", projFile.Root.GetDefaultNamespace().NamespaceName)).First().SetValue(nameSpace);
+            projFile.Root.Descendants(XName.Get("AssemblyName", projFile.Root.GetDefaultNamespace().NamespaceName)).First().SetValue(projectName);
 
-            if(guidMap.fi)
-            guidElement.SetValue();
+            return projFile.ToString();
         }
 
-        private void SortProjectItems(Dictionary<string, ICollection<ProjectItem>> _projectGroupings)
+        private void SortProjectItems(ref Dictionary<string, ICollection<ProjectItem>> _projectGroupings)
         {
             _projectGroupings = new Dictionary<string, ICollection<ProjectItem>>();
             foreach (var projectItem in _allFiles)
@@ -170,7 +217,7 @@ namespace ProjectReconstructor.Infracture
         private void GenerateProjectTemplate(DirectoryInfo dir, FileInfo[] majorDirFile)
         {
             logger.Info($"ProjectName: {dir.Name}");
-            var projectName = ProjectName(dir.FullName);
+            var projectName = ProjectName(dir.Name);
         }
 
         private string ProjectName(string relativePath)
