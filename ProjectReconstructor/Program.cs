@@ -75,7 +75,18 @@ namespace ProjectReconstructor
 
             _mksProjectFiles = _mksProjectCreator.MksProjectFiles;
 
+            //3now setup the system references
+            UpdateProjectReferences(sourceProject, _mksProjectFiles, allReferences);
+        }
 
+        private void UpdateProjectReferences(Project project, IList<MksProjectFile> mksProjectFiles, ProjectItem[] sysRefs)
+        {
+            foreach (var mksProjectFile in mksProjectFiles)
+            {
+                var allrefs = mksProjectFile.ProjectItems.SelectMany(c => c.References).Distinct().ToArray();
+                var refItems = sysRefs.Where(d => allrefs.Contains(d.EvaluatedInclude)).ToArray();
+
+            }
         }
 
         private void CreateDirectoryStructure(string sourceDirPath, string targetDirPath, string root)

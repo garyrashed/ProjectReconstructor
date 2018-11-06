@@ -27,6 +27,7 @@ namespace ProjectReconstructor.Infracture
         private ProjectItem[] _systemReferences;
                 
         static string _pattern = @".*Source\\" + @"(.*)";
+        private static string _nameSpacePattern = @"namespace (.*)";
         Regex regex = new Regex(_pattern);
 
         private List<MksProjectFile> _mksProjectFiles;
@@ -61,6 +62,8 @@ namespace ProjectReconstructor.Infracture
 
         private void SetProjectItemsRefsAndNamespaces()
         {
+            var namespaceRegex = new Regex(_nameSpacePattern);
+
             foreach (var mksProjectFile in MksProjectFiles)
             {
                 var items = mksProjectFile.ProjectItems;
@@ -68,10 +71,26 @@ namespace ProjectReconstructor.Infracture
                 {
                     var walker = new CsharpFileWalker();
                     walker.ProcessFile(item.AbsoluteSourcePath);
-                    item.References = walker.UsingsDictionary[item.AbsoluteSourcePath]
-                        .Select(c => c.ToString().Replace("using ", "").Replace(";", "")).ToArray();
-                    item.NameSpaces = walker.NameSpacesDictionary[item.AbsoluteSourcePath]
-                        .Select(c => c.ToString().Replace("namespace ", "").Replace(";", "")).ToArray();
+                    if(walker.UsingsDictionary.ContainsKey(item.AbsoluteSourcePath))
+                    {
+                        item.References = walker.UsingsDictionary[item.AbsoluteSourcePath]
+                            .Select(c => c.ToString().Replace("using ", "").Replace(";", "")).ToArray();
+                    }
+                    else
+                    {
+                        item.References = new string[0];
+                    }
+                    
+                    if(walker.NameSpacesDictionary.ContainsKey(item.AbsoluteSourcePath))
+                    {
+                        item.NameSpaces = walker.NameSpacesDictionary[item.AbsoluteSourcePath]
+                            .Select(c => namespaceRegex.Match(c.ToString()).Groups[1].Value.Trim()).ToArray();
+                        //.Select(c => c.ToString().Replace("namespace ", "").Replace(";", "")).ToArray();
+                    }
+                    else
+                    {
+                        item.NameSpaces = new string[0];
+                    }
                 }
             }
         }
@@ -81,7 +100,7 @@ namespace ProjectReconstructor.Infracture
             foreach (var mksProj in _mksProjectFiles)
             {
                 var items = mksProj.ProjectItems;
-                var references = items.SelectMany(c => c.References).Distinct().ToArray();
+                var references = items.SelectMany(c =>c == null ? new string[] {} : c.References).Where(d => d !=  null).Distinct().ToArray();
                 var projectXml = XDocument.Parse(mksProj.XML);
                 var nameSpace = projectXml.Root.GetDefaultNamespace();
                 var baseRoot = projectXml.Root.Descendants().Single(c => c.Name.LocalName == "EndInsertion");
