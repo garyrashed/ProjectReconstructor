@@ -228,6 +228,7 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Config\ProjectConfigSectionHandler.cs" />
     <Compile Include="DependencyWalker\CsharpFileWalker.cs" />
     <Compile Include="DependencyWalker\ProjectWalker.cs" />
     <Compile Include="Domain\MksProjectFile.cs" />
@@ -237,6 +238,8 @@
     <Compile Include="Extensions\MandatoryXElementNotFound.cs" />
     <Compile Include="Infracture\DirectoryManager.cs" />
     <Compile Include="Infracture\FolderFileManager.cs" />
+    <Compile Include="Infracture\foo.cs" />
+    <Compile Include="Infracture\GuidMap.cs" />
     <Compile Include="Infracture\MksProjectFileCreator.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

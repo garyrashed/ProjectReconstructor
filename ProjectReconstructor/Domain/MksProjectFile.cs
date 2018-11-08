@@ -41,6 +41,11 @@ namespace ProjectReconstructor
         /// </summary>
         public string RelativePath { get; set; }
 
+        public Uri AbsoluteTargetUri
+        {
+            get {return new Uri(AbsoluteTargetPath);}
+        }
+
         public string AssemblyName { get; set; }
 
         /// <summary>

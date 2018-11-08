@@ -83,11 +83,12 @@ namespace ProjectReconstructor.Domain
             AbsoluteSourcePath = sourcePath;
             FileName = Path.GetFileName(AbsoluteSourcePath);
             AbsoluteTargetPath = Path.Combine(targetDir, relativePath);
-
+            AbsoluteTargetUri = new Uri(AbsoluteTargetPath);
             _projectItem = projectItem;
         }
 
         public string AbsoluteTargetPath { get; set; }
+        public Uri AbsoluteTargetUri { get; }
         public string AbsoluteSourcePath { get; set; }
         public string FileName { get; set; }
 

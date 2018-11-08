@@ -3,12 +3,15 @@ using System.Collections.Generic;
 using System.Configuration;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
+using System.Xml.Linq;
 using log4net;
 using Microsoft.Build.Evaluation;
 using Microsoft.CodeAnalysis.VisualBasic.Syntax;
 using ProjectReconstructor.DependencyWalker;
+using ProjectReconstructor.Extensions;
 using ProjectReconstructor.Infracture;
 
 namespace ProjectReconstructor
@@ -23,6 +26,7 @@ namespace ProjectReconstructor
         private string rootSourceDir;
         private string rootTargetDir;
         private string nameSpacePrefix;
+        private string originalNameSpacePrefix;
         private string sourceSolutionPath;
         private string targetDir;
         private Project sourceProject;
@@ -50,6 +54,7 @@ namespace ProjectReconstructor
             rootSourceDir = Path.Combine(sourceProjectDir, rootofSource);
             rootTargetDir = Path.Combine(targetDir, rootofSource);
             nameSpacePrefix = ConfigurationManager.AppSettings["nameSpacePrefix"];
+            originalNameSpacePrefix = ConfigurationManager.AppSettings["originalNameSpacePrefix"];
             targetDir = ConfigurationManager.AppSettings["targetDir"];
             
 
@@ -75,16 +80,96 @@ namespace ProjectReconstructor
 
             _mksProjectFiles = _mksProjectCreator.MksProjectFiles;
 
-            //3now setup the system references
+            //3 add  the system references
+            UpdateSystemReferences(sourceProject, _mksProjectFiles, allReferences);
+
+            //4 now setup the project references
             UpdateProjectReferences(sourceProject, _mksProjectFiles, allReferences);
+
+            UpdateServiceReference(sourceProject, _mksProjectFiles, allReferences)
+            //5 for now 
+
+            
+
+        }
+
+        private void UpdateServiceReference(Project project, List<MksProjectFile> mksProjectFiles, ProjectItem[] allReferences)
+        {
+            var emailService = "MKS.Vendor.Microsoft.Exchange.ExchangeWebServiceReference";
+            
+
+        }
+
+        private void UpdateSystemReferences(Project project, List<MksProjectFile> mksProjectFiles, ProjectItem[] allReferences)
+        {
+            var projectGuidMap = new GuidMap();
+            
+           
+            var projectRefsWithoutHint =  project.Items.Where(c =>
+                c.ItemType == "Reference" &&
+                c.DirectMetadata.Any(d => d.Name == "HintPath") == false).ToArray();
+
+            foreach (var mksProject in mksProjectFiles)
+            {
+                var itemGroup = new XElement("ItemGroup");
+                foreach(var sysRef in projectRefsWithoutHint)
+                {
+                    itemGroup.Add(new XElement("Reference"
+                    , new  XAttribute("Include", sysRef.EvaluatedInclude)
+                        
+                    ));
+                }
+
+                mksProject.XML = mksProject.XML.Replace(@"  <BeginInsertion />",
+                    @"  <BeginInsertion />" + "\r\n" + itemGroup.ToString());
+            }
         }
 
         private void UpdateProjectReferences(Project project, IList<MksProjectFile> mksProjectFiles, ProjectItem[] sysRefs)
         {
+            var projectGuidMap = new GuidMap();
             foreach (var mksProjectFile in mksProjectFiles)
             {
-                var allrefs = mksProjectFile.ProjectItems.SelectMany(c => c.References).Distinct().ToArray();
-                var refItems = sysRefs.Where(d => allrefs.Contains(d.EvaluatedInclude)).ToArray();
+                var originalNameSpace = mksProjectFile.NameSpace.Replace(nameSpacePrefix, originalNameSpacePrefix);
+                var projectRefs = mksProjectFile.ProjectItems
+                    .SelectMany(c => c.References)
+                    .Where(d => d.StartsWith("MKS") && d.StartsWith(originalNameSpace) == false)
+                    .Distinct();
+                
+                var projectNames = projectRefs 
+                    
+                    .Select(c => c.Remove(0, 4).Split('.'))
+                    .Select(c => c.Take(2).ConcatToString(""));
+
+                var ItemGroup = new XElement("ItemGroup");
+                foreach (var projectRef in projectNames)
+                {
+                    var listOfProjects = new List<XElement>();
+                    if(projectGuidMap.ProjectGuidMap.ContainsKey(projectRef))
+                    {
+                        var guid = projectGuidMap.ProjectGuidMap[projectRef];
+                        var foo = mksProjectFiles.FirstOrDefault(c => c.AssemblyName == projectRef);
+                        var IncludePath = mksProjectFile.AbsoluteTargetUri.MakeRelativeUri(foo.AbsoluteTargetUri).ToString().Replace('/', '\\');
+                        var projectElement = new XElement(
+                            new XElement("ProjectReference"
+                                , new XAttribute("Include", IncludePath)
+                                , new XElement("Project", guid)
+                                , new XElement("Name", projectRef)
+                            ));
+                        listOfProjects.Add(projectElement);
+                    }
+
+                    if (listOfProjects.Count > 0)
+                    {
+                        foreach (var element in listOfProjects)
+                        {
+                            ItemGroup.Add(element);
+                        }
+                    }
+                }
+
+                mksProjectFile.XML =  mksProjectFile.XML.Replace(@"  <BeginInsertion />",
+                    @"  <BeginInsertion />" + "\r\n" + ItemGroup.ToString());
 
             }
         }
