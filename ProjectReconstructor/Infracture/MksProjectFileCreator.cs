@@ -121,7 +121,7 @@ namespace ProjectReconstructor.Infracture
         private void SetGuidsTemplateAndNameSpace()
         {
             _guidMap = XDocument.Load(@".\ProjectGuids.xml").Root;
-            var guidMap =  _guidMap.Descendants().Select(c => new
+            var guidMap =  _guidMap.Descendants("Project").Select(c => new
                 {Name = c.Attribute("Name").Value, ProjectGuid = c.Attribute("Guid").Value}).ToArray();
             var template = XDocument.Load(@".\template.csproj");
             var templateNameSpace = template.Root.GetDefaultNamespace().NamespaceName;
@@ -171,7 +171,9 @@ namespace ProjectReconstructor.Infracture
                 if(_mksProjectFiles.Contains(key) == false)
                     _mksProjectFiles.Add(key);
 
-                _mksProjectFiles.Find(c => c.Equals(key)).ProjectItems.Add(new MksProjectItem(projectItem
+                var mksProj =  _mksProjectFiles.Find(c => c.Equals(key));
+
+                    mksProj.ProjectItems.Add(new MksProjectItem(mksProj, projectItem
                     , Path.Combine(_rootOfSourceDir, projectItem.EvaluatedInclude.Substring(_rootOfSource.Length))
                     , projectItem.EvaluatedInclude
                     , _rootOfTargetDir.Substring(0, _rootOfTargetDir.LastIndexOf(_rootOfSource))

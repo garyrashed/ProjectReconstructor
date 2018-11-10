@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Xml.Linq;
 
@@ -9,6 +10,40 @@ namespace ProjectReconstructor.Extensions
 {
     public static class LinqToXmlExtensions
     {
+        public static XDocument AddBeforElement(this XDocument xml, string elementName, XElement elementToAdd)
+        {
+            var root = xml.Root;
+            var particularDescendant = root.Descendants(elementName).FirstOrDefault();
+            particularDescendant.AddBeforeSelf(elementName);
+            return xml;
+        }
+
+        public static XDocument AddItemGroupBeforeElement(this XDocument xml)
+        {
+            XElement itemGroup = new XElement("ItemGroup");
+            var str = xml.AddBeforElement("EndInsertion", itemGroup);
+            return xml;
+        }
+
+        public static XDocument AddElementsInItemGroup(this XDocument xml, List<string> items)
+        {
+            var itemGroup =  xml.AddItemGroupBeforeElement();
+
+            foreach (var item in items)
+            {
+                var match = Regex.Match(item, @"<(\w+).*Include=("".*"")");
+
+                var itemType = (string)match.Groups[1].Value;
+                var include = match.Groups[2].Value;
+
+                XElement newItem = new XElement(itemType, new XAttribute("Include", include));
+                itemGroup.Add(newItem);
+            }
+
+            return xml;
+
+        }
+
         public static XElement FirstMandatoryElement(this XElement root, string localName)
         {
             var candidates = FindMandatoryElements(root, localName);

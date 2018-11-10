@@ -3,16 +3,41 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.ComponentModel.Design.Serialization;
 using System.Data;
+using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
+using Microsoft.Build.Construction;
 
 namespace ProjectReconstructor.Extensions
 {
     public static class CollectionExtensions
 {
-        public static string ConcatToString(this IEnumerable collection, string separator)
+
+    public static string[] SplitWithStrings(this string obj, string separator)
+    {
+        return obj.Split(new string[] {separator}, StringSplitOptions.RemoveEmptyEntries);
+    }
+
+    public static bool ContainsSearch(this string obj, string searchString)
+    {
+        return CultureInfo.CurrentCulture.CompareInfo.IndexOf(obj, searchString, CompareOptions.IgnoreCase) >= 0;
+    }
+    public static bool ContainsSearch(this string obj, IEnumerable<string> searchString)
+    {
+        bool foundOne = false;
+        foreach (var search in searchString)
+        {
+            foundOne =  CultureInfo.CurrentCulture.CompareInfo.IndexOf(obj, search, CompareOptions.IgnoreCase) >= 0;
+            if (foundOne)
+                return true;
+        }
+
+        return false;
+    }
+    public static string ConcatToString(this IEnumerable collection, string separator)
         {
             var builder = new StringBuilder();
             bool atLeastOneItemInCollection = false;
@@ -186,6 +211,7 @@ namespace ProjectReconstructor.Extensions
             return list1;
         }
 
+        
         public static int LastIndexWhere(this string[] arr, string pattern)
         {
             for (int i = arr.Length - 1; i >= 0; i--)

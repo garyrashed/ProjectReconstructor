@@ -15,7 +15,7 @@ namespace ProjectReconstructor.Infracture
         public GuidMap()
         {
             _guidMap = XElement.Load(@".\ProjectGuids.xml");
-            ProjectGuidMap =  _guidMap.Descendants().Select(c => new
+            ProjectGuidMap =  _guidMap.Descendants("Project").Select(c => new
                 {Name = c.Attribute("Name").Value, ProjectGuid = c.Attribute("Guid").Value}).ToDictionary(c => c.Name, d => d.ProjectGuid);
         }
     }

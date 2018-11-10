@@ -1,4 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8" ?>
+<Guids>
+<Solution Guid="{9A8482DD-FC64-42C5-9DFC-6F3DCAD2C67E}" />
 <Projects ProjectName="MKS">
   <Project Name="CommonEmail" Guid="{8a7f9dc7-4186-47f8-b38c-428155fbb739}" />
   <Project Name="CommonComparer" Guid="{73062de6-8d62-41fc-b6ce-f41887f80760}" />
@@ -49,3 +51,5 @@
   <Project Name="CommonFSM" Guid="{b4548feb-f2b4-49a8-8ee3-24626923edc3}" />
   <Project Name="VendorLinqPad" Guid="{2bcfd159-2c07-42b3-b15c-853e6a970955}" />
 </Projects>
+</Guids>
+

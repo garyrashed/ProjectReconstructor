@@ -78,8 +78,9 @@ namespace ProjectReconstructor.Domain
 
         public int MetadataCount => _projectItem.MetadataCount;
 
-        public MksProjectItem(ProjectItem projectItem, string sourcePath, string relativePath, string targetDir)
+        public MksProjectItem(MksProjectFile mksProjectFile, ProjectItem projectItem, string sourcePath, string relativePath, string targetDir)
         {
+            MksProjectFile = mksProjectFile;
             AbsoluteSourcePath = sourcePath;
             FileName = Path.GetFileName(AbsoluteSourcePath);
             AbsoluteTargetPath = Path.Combine(targetDir, relativePath);
@@ -95,5 +96,7 @@ namespace ProjectReconstructor.Domain
         public string[] References { get; set; }
 
         public string[] NameSpaces { get; set; }
+
+        public MksProjectFile MksProjectFile { get; }
     }
 }

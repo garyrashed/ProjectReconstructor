@@ -126,10 +126,6 @@ namespace ProjectReconstructor.Infracture
                             .Select(c => c.ToString().Replace("using ", "").Replace(";", "")).ToArray();
                     }
                 }
-
-                mksProjectFile.References = items.SelectMany(d => d.References ?? new []{string.Empty}).Distinct().ToArray();
-
-
             }
         }
 
@@ -163,7 +159,7 @@ namespace ProjectReconstructor.Infracture
             mksProjectFile.Guid = guid;
             mksProjectFile.Name = projectName;
             mksProjectFile.NameSpace = fullNameSpace;
-            mksProjectFile.ProjectItems = generateProjectFileOptions.ProjectItems.Select(c => new MksProjectItem(c, Path.Combine(_sourceDir, c.EvaluatedInclude), c.EvaluatedInclude, _targetDir)).ToArray();
+            mksProjectFile.ProjectItems = generateProjectFileOptions.ProjectItems.Select(c => new MksProjectItem(mksProjectFile, c, Path.Combine(_sourceDir, c.EvaluatedInclude), c.EvaluatedInclude, _targetDir)).ToArray();
             var mksProjectFileXML = GenerateProjectXML(projectName, _guidMap, _template, fullNameSpace, mksProjectFile);
 
             mksProjectFile.XML = mksProjectFileXML;
