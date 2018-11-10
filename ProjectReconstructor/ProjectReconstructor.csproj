@@ -233,6 +233,7 @@
     <Compile Include="DependencyWalker\ProjectWalker.cs" />
     <Compile Include="Domain\MksProjectFile.cs" />
     <Compile Include="Domain\MksProjectItem.cs" />
+    <Compile Include="Domain\XElementComparer.cs" />
     <Compile Include="Extensions\CollectionExtensions.cs" />
     <Compile Include="Extensions\LinqToXmlExtensions.cs" />
     <Compile Include="Extensions\MandatoryXElementNotFound.cs" />
@@ -247,6 +248,9 @@
   <ItemGroup>
     <None Include="App.config" />
     <None Include="packages.config" />
+    <None Include="template.config">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Content Include="ProjectGuids.xml">

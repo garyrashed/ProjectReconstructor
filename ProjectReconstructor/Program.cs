@@ -4,6 +4,7 @@ using System.Configuration;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Runtime;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -13,6 +14,7 @@ using log4net;
 using Microsoft.Build.Evaluation;
 using Microsoft.CodeAnalysis.VisualBasic.Syntax;
 using ProjectReconstructor.DependencyWalker;
+using ProjectReconstructor.Domain;
 using ProjectReconstructor.Extensions;
 using ProjectReconstructor.Infracture;
 
@@ -30,6 +32,7 @@ namespace ProjectReconstructor
         private string nameSpacePrefix;
         private string originalNameSpacePrefix;
         private string sourceSolutionPath;
+        private string packagesPath;
         private string targetDir;
         private Project sourceProject;
         private IEnumerable<ProjectItem> compileFiles;
@@ -58,7 +61,7 @@ namespace ProjectReconstructor
             nameSpacePrefix = ConfigurationManager.AppSettings["nameSpacePrefix"];
             originalNameSpacePrefix = ConfigurationManager.AppSettings["originalNameSpacePrefix"];
             targetDir = ConfigurationManager.AppSettings["targetDir"];
-            
+            packagesPath = ConfigurationManager.AppSettings["packages"];
 
             if (string.IsNullOrEmpty(sourceProjectPath))
                 throw new ArgumentException("We need to have a path to a project file.");
@@ -95,14 +98,204 @@ namespace ProjectReconstructor
             UpdateWebReferences(sourceProject, _mksProjectFiles, allReferences, ConfigurationManager.AppSettings["webServiceReferences"].SplitWithStrings(";"));
 
             //6
-            UpdateCompileReferences(_mksProjectFiles);
+            WriteOutPackages(sourceProject, _mksProjectFiles, targetDir, packagesPath);
 
-            //7Write out each project File
+            WriteOutLibraryFiles(sourceProject, _mksProjectFiles, targetDir);
+            //7
+            UpdateCompileReferences(_mksProjectFiles);
+            
+            //8 Write out each project File
             WriteOutProjFiles(_mksProjectFiles);
 
             //Construct a solution file
             WriteOutSolutionFile(_mksProjectFiles, targetDir, rootofSource);
         }
+
+        private void WriteOutLibraryFiles(Project project, List<MksProjectFile> mksProjectFiles, string targetDir)
+        {
+            var libraryItems = project.Items
+                .Where(c => c.DirectMetadata.Any(d => d.EvaluatedValue.StartsWith("Library\\"))).ToArray();
+
+            DirectoryManager.Copy(project.DirectoryPath + "\\Library", targetDir + "Library\\");
+            var targetLibraryUri = new Uri(targetDir + "Library\\");
+
+            var nameSpaceToDll = new Dictionary<string, Tuple<string, ProjectItem>>();
+            foreach (var lib in libraryItems)
+            {
+                var sourceFile = Path.Combine(targetDir, lib.DirectMetadata.FirstOrDefault(c => c.Name == "HintPath").EvaluatedValue);
+                var assemblyName = AssemblyName.GetAssemblyName(sourceFile);
+                try
+                {
+                    var nsx = Assembly.Load(assemblyName).GetTypes().Where(c => c.IsPublic && c.Assembly.FullName == assemblyName.FullName).ToArray();
+
+                    var ns = nsx
+                    
+                        .Select(t => t.Namespace)
+                        .Where(q => q != null)
+                        .Distinct();
+
+                    foreach (var n in ns)
+                    {
+                        if(nameSpaceToDll.ContainsKey(n) == false)
+                            nameSpaceToDll.Add(n, new Tuple<string, ProjectItem>(sourceFile, lib));
+                    }
+                }
+                catch (Exception e)
+                {
+
+                }
+            }
+
+            foreach (var proj in mksProjectFiles)
+            {
+                var doc = XDocument.Parse(proj.XML).Root;
+                var itemGroupName = XName.Get("ItemGroup", doc.GetDefaultNamespace().NamespaceName);
+                var compileName = XName.Get("Compile", doc.GetDefaultNamespace().NamespaceName);
+                var beginInsertion =  doc.Descendants().FirstOrDefault(c => c.Name.LocalName == "BeginInsertion");
+
+                if (proj.References.Any(c => nameSpaceToDll.ContainsKey(c)))
+                {
+                    var refsToAdd =  proj.References.Where(c => nameSpaceToDll.ContainsKey(c)).ToArray();
+                    var librarylist = new List<XElement>();
+                    foreach (var s in refsToAdd)
+                    {
+                        var somethingICantName = nameSpaceToDll[s];
+                        var add =  Regex.Replace(somethingICantName.Item2.Xml.OuterElement, @"xmlns="".*""", string.Empty);
+                        var hintPath = Regex.Match(add, @"<HintPath>(.*)</HintPath>").Groups[1];
+                        var targetURI = new Uri(targetDir + hintPath);
+                        var newHintPath =  proj.AbsoluteTargetUri.MakeRelativeUri(targetURI).ToString().Replace('/', '\\');
+                        add = Regex.Replace(add, @"<HintPath>.*</HintPath>",
+                            @"<HintPath>" + newHintPath + @"</HintPath>");
+                        librarylist.Add(XElement.Parse(add));
+                    }
+
+                    var itemGroup = new XElement(itemGroupName);
+                    itemGroup.Add(librarylist);
+                    var foobar1 = Regex.Replace(itemGroup.ToString(), @"xmlns="".*""", string.Empty);
+                    proj.XML = proj.XML.Replace(@"  <BeginInsertion />",
+                        @"  <BeginInsertion />" + "\r\n" + foobar1);
+
+                }
+            }
+        }
+
+        private void WriteOutPackages(Project project, List<MksProjectFile> mksProjectFiles, string targetDir, string packagePath)
+        {
+            var packageItems = project.Items
+                .Where(c => c.DirectMetadata.Any(d => d.EvaluatedValue.Contains("..\\packages\\"))).ToArray();
+
+            var packageDictionary = XDocument.Load(packagePath).Root.Descendants()
+                .ToDictionary(c => c.Attribute("id").Value + "." + c.Attribute("version").Value, d => d.ToString());
+
+            var nameSpaceToDll = new Dictionary<string, Tuple<string, ProjectItem>>();
+            foreach (var pack in packageItems)
+            {
+                var packPath = Path.Combine(project.DirectoryPath,
+                    pack.DirectMetadata.FirstOrDefault(d => d.EvaluatedValue.Contains("..\\package")).EvaluatedValue);
+
+                var assemblyName = AssemblyName.GetAssemblyName(packPath);
+
+                try
+                {
+                    var nsx = Assembly.Load(assemblyName).GetTypes().Where(c => c.IsPublic).ToArray();
+
+                        var ns = nsx
+                    
+                        .Select(t => t.Namespace)
+                        .Where(q => q != null)
+                        .Distinct();
+
+                    foreach (var n in ns)
+                    {
+                        if(nameSpaceToDll.ContainsKey(n) == false)
+                            nameSpaceToDll.Add(n, new Tuple<string, ProjectItem>(packPath, pack));
+                    }
+                }
+                catch (Exception e)
+                {
+
+                }
+
+            }
+
+            foreach (var proj in mksProjectFiles)
+            {
+                var packageRefs = nameSpaceToDll.Keys.Intersect(proj.References);
+                if(packageRefs.Any())
+                {
+                    var intersection = packageRefs.ToArray();
+                    //create a packages file
+                    var packageDocument = XDocument.Load(@".\template.config");
+                    var rootPageDocument = packageDocument.Root;
+                    var packageFilePath =  Path.Combine(proj.AbsoluteTargetDir, "packages.config");
+                    var packagesToAdd = new List<string>();
+                   
+                    var doc = XDocument.Parse(proj.XML).Root;
+                    var itemGroupName = XName.Get("ItemGroup", doc.GetDefaultNamespace().NamespaceName);
+                    var compileName = XName.Get("Compile", doc.GetDefaultNamespace().NamespaceName);
+                    var beginInsertion =  doc.Descendants().FirstOrDefault(c => c.Name.LocalName == "BeginInsertion");
+
+                    var itemGroup = new XElement(itemGroupName);
+                    foreach (var inter in intersection)
+                    {
+                        var info = nameSpaceToDll[inter];
+                        var foob = info.Item2.Xml.OuterElement;
+                        
+                        var lengthOfPackage = "packages\\".Length;
+                        var pathToPackage = info.Item1.SplitWithStrings("..\\packages\\");
+                        
+                        var packageName = pathToPackage[1].SplitWithStrings("\\")[0];
+
+                        var depth = pathToPackage[0].SplitWithStrings("\\");
+                        var packageRoot = Path.Combine(depth.Take(depth.Length - 1).ConcatToString("\\"), "packages\\");
+                        
+
+                        var targetPackageDir = Path.Combine(targetDir, $"packages\\{packageName}\\");
+                        var uriPackage = new Uri(targetPackageDir);
+                        var hintpath = proj.AbsoluteTargetUri.MakeRelativeUri(uriPackage).ToString().Replace('/', '\\');
+                        hintpath = hintpath.Replace(packageName + "\\", pathToPackage[1]);
+                        var packageToCopy = Path.Combine(depth.Take(depth.Length - 1).ConcatToString("\\"), "packages\\", packageName + "\\");
+                        DirectoryManager.Copy(packageToCopy, targetPackageDir);
+                        foob = Regex.Replace(foob, @"\<HintPath\>.*\<\/HintPath\>",
+                            @"<HintPath>" + hintpath + @"</HintPath>");
+
+                        foob = Regex.Replace(foob, @"xmlns="".*""", "");
+                        
+                        if(itemGroup.Descendants().Any(d => d.ToString().ContainsSearch($"{foob}")))
+                            ;
+                        else
+                        {
+                            itemGroup.Add(XElement.Parse(foob));
+                        }
+
+                        try
+                        {
+                            var packageLine = XElement.Parse(packageDictionary[packageName]);
+                            if(rootPageDocument.Descendants().Contains(packageLine, new XElementComparerPackage()) == false)
+                                rootPageDocument.Add(packageLine); 
+                        }
+                        catch (Exception e)
+                        {
+                        }
+                    }
+
+                    var distinctItemGroup = itemGroup.Descendants().Where(c => c.Name.LocalName == "Reference").Distinct(new XElementComparerHintPath());
+                    var newDistinctItemGroup = new XElement(itemGroupName, distinctItemGroup);
+
+                    var packageAdds = Regex.Replace(newDistinctItemGroup.ToString(), @"xmlns=\"".*""", "");
+                    
+                    //beginInsertion.AddAfterSelf(itemGroup);
+
+                    proj.XML = doc.ToString();
+                    proj.XML =  proj.XML.Replace(@"  <BeginInsertion />",
+                        @"  <BeginInsertion />" + "\r\n" + packageAdds.ToString());
+                    var newPackageContent = packageDocument.ToString();
+
+                    File.WriteAllText(packageFilePath, @"<?xml version=""1.0"" encoding=""utf-8""?>" + newPackageContent);
+                }
+            }
+        }
+
 
         private void WriteOutSolutionFile(List<MksProjectFile> mksProjectFiles, string targetDir, string rootOfSource)
         {
@@ -162,7 +355,9 @@ namespace ProjectReconstructor
 
                 beginInsertion.AddAfterSelf(compileItemGroup);
 
-                proj.XML = doc.ToString();
+                var compiles = doc.ToString();
+                compiles = compiles.Replace(proj.RelativePath + "\\", "");
+                proj.XML = compiles;
 
                 proj.XML = Regex.Replace(proj.XML, @"(\<Compile .*)(xmlns=.*) \/\>", @"$1 />");
                 proj.XML = proj.XML.Replace(@"  <BeginInsertion />", "").Replace(@"<EndInsertion />", "");
