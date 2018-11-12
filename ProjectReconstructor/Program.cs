@@ -74,10 +74,11 @@ namespace ProjectReconstructor
             var systemReferences =  allReferences.Where(c =>
                         c.DirectMetadataCount == 0 || !c.DirectMetadata.Select(d => d.Name).Contains("HintPath")).ToArray();
 
-
-
             //1 Create the directory structure;
             DirectoryManager.Copy(rootSourceDir,  rootTargetDir, _logger);
+
+            //2 Move the things that are in the roots e.g. App\foo.cs to core and  
+            MoveFilesToCoreAndUtil(rootTargetDir);
 
             //2 go Through the rootSourceDir and create the projectFiles on the target Dir
             //don't worry  about addiing the references, that comes later
@@ -109,6 +110,49 @@ namespace ProjectReconstructor
 
             //Construct a solution file
             WriteOutSolutionFile(_mksProjectFiles, targetDir, rootofSource);
+        }
+
+        private void MoveFilesToCoreAndUtil(string rootTargetDirPath)
+        {
+            var rootUri = new Uri(rootTargetDirPath);
+            DirectoryInfo root = new DirectoryInfo(rootTargetDirPath);
+            var subDirs = root.GetDirectories();
+            foreach (var subDir in subDirs)
+            {
+                var rootFiles = subDir.GetFiles();
+ 
+                foreach (var file in rootFiles)
+                {
+                    var fileUri = new Uri(file.FullName);
+                    var relativePath = rootUri.MakeRelativeUri(fileUri).ToString().Replace('/', '\\');
+                    var depth = (relativePath.SplitWithStrings("\\").Length);
+
+                    var walker = new CsharpFileWalker();
+                    walker.ProcessFile(file.FullName);
+                    var refs =  walker.UsingsDictionary.SelectMany(c => c.Value)
+                        .Select(d => d.ToString().Replace("using ", "").Replace(";", "")).ToArray();
+
+                    if (refs.Any(c => c.StartsWith("MKS")) == false && depth == 2)
+                    {
+                        var coreFileDir = subDir.CreateSubdirectory(".\\Core\\");
+                        var filePath = $"{file.DirectoryName}\\core\\{file.Name}";
+                        if (File.Exists(filePath))
+                            File.Delete(filePath);
+
+                        file.MoveTo(filePath);
+                    }
+                    else if(depth == 2)
+                    {
+                        
+                        var helperFileDir = subDir.CreateSubdirectory($".\\{subDir.Name}\\");
+                        var filePath = $"{file.DirectoryName}\\{subDir.Name}\\{file.Name}";
+                        if (File.Exists(filePath))
+                            File.Delete(filePath);
+
+                        file.MoveTo(filePath);
+                    }
+                }
+            }
         }
 
         private void WriteOutLibraryFiles(Project project, List<MksProjectFile> mksProjectFiles, string targetDir)

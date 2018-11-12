@@ -58,6 +58,33 @@ namespace ProjectReconstructor.Infracture
             SetProjectItemsRefsAndNamespaces();
 
             SetTheSystemRefs();
+
+           // SplitMksCommonIntoPieces();
+        }
+
+        //we need to split Common into 2 pieces
+        //the first truly has no dependencies to outher projects
+        //the second may.
+        private void SplitMksCommonIntoPieces()
+        {
+            var common = _mksProjectFiles.FirstOrDefault(c => c.Name == "Common");
+
+            var mksCommonBase = new MksProjectFile();
+            foreach (var item in common.ProjectItems)
+            {
+                if (item.References.Any(c => c.StartsWith("MKS")) == false)
+                {
+                    mksCommonBase.ProjectItems.Add(item);
+                    
+
+                }
+            }
+
+            foreach (var item in mksCommonBase.ProjectItems)
+            {
+                common.ProjectItems.Remove(item);
+            }
+
         }
 
         private void SetProjectItemsRefsAndNamespaces()
@@ -189,14 +216,23 @@ namespace ProjectReconstructor.Infracture
             var directoryStructure = match.Groups[1].Value.Split(new string[] {"\\"}, StringSplitOptions.RemoveEmptyEntries);
             //var indexIfCSextension = fileName.LastIndexOf(@"\.cs", StringComparison.Ordinal);
 
+
+
             var projectName = "";
             projectName = projectName  + directoryStructure[0];
 
-            if (directoryStructure.Length == 1 || (directoryStructure.Length == 2 && directoryStructure[1].Contains(".cs")))
-                ;
+            if (directoryStructure.Length == 1 ||
+                (directoryStructure.Length == 2 && directoryStructure[1].Contains(".cs")))
+                projectName = projectName + "_" +
+                              FileWalker.CoreOrDupe(Path.Combine(_rootOfSourceDir, directoryStructure.ConcatToString("\\")),
+                                  _rootOfSourceDir, _rootOfTargetDir);
             else
                 projectName = projectName + "_" + directoryStructure[1];
 
+            if (projectName.Contains('_') == false)
+            {
+
+            }
 
             var mksProjectFile = new MksProjectFile();
             mksProjectFile.Name = projectName;

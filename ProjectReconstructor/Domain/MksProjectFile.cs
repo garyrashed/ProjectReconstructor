@@ -123,9 +123,5 @@ namespace ProjectReconstructor
         {
             ProjectItems = new List<MksProjectItem>();
         }
-
-
-
-
     }
 }

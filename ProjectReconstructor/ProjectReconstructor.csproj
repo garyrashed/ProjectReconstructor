@@ -230,6 +230,7 @@
   <ItemGroup>
     <Compile Include="Config\ProjectConfigSectionHandler.cs" />
     <Compile Include="DependencyWalker\CsharpFileWalker.cs" />
+    <Compile Include="DependencyWalker\FileWalker.cs" />
     <Compile Include="DependencyWalker\ProjectWalker.cs" />
     <Compile Include="Domain\MksProjectFile.cs" />
     <Compile Include="Domain\MksProjectItem.cs" />

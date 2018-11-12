@@ -22,7 +22,8 @@
   <Project Name="VendorGoogle" Guid="{4d2973b4-563b-43bc-99be-f42b54bc01d3}" />
   <Project Name="CommonFTP" Guid="{f8510d5f-48bc-4acf-a7e7-758aec0bd74f}" />
   <Project Name="CommonLock" Guid="{b0096ccb-debd-4d98-82f8-44ce8f5d986b}" />
-  <Project Name="Common" Guid="{91a6dd8d-f550-4a06-890f-26b7479fa825}" />
+  <Project Name="CommonCommon" Guid="{91a6dd8d-f550-4a06-890f-26b7479fa825}" />
+  <Project Name="CommonCore" Guid="{648A6643-AAED-4F23-B14E-6A39AAE0F3E2}" />
   <Project Name="AppAISMon" Guid="{f150d37e-8a45-4c2f-9d45-70f793df8269}" />
   <Project Name="VendorAtlassian" Guid="{19148101-2d04-4de1-bcc9-23f05c0243cf}" />
   <Project Name="CommonValidation" Guid="{af0ff91f-5489-4ada-a566-bbe8d72c3f4d}" />
@@ -37,7 +38,8 @@
   <Project Name="System" Guid="{7f463bf0-bd19-449f-bfc7-e09b5598b397}" />
   <Project Name="VendorSplunk" Guid="{ab1db4d9-3bde-467e-bdc8-eaaaef311115}" />
   <Project Name="CommonWebService" Guid="{8c8114d3-1861-4484-86e4-417028a2ad26}" />
-  <Project Name="App" Guid="{68963ae7-d337-4b78-834a-f9deb3f38a8c}" />
+  <Project Name="AppApp" Guid="{68963ae7-d337-4b78-834a-f9deb3f38a8c}" />
+  <Project Name="AppCore" Guid="{DF4D1AA3-D157-4B73-88B9-830261736FE7}" />
   <Project Name="CommonDataQuality" Guid="{c2fb160e-8bb6-4e15-845f-beddae45127b}" />
   <Project Name="VendorSalesforce" Guid="{e4fa0525-2c1a-4f37-ae39-4ccf82859c76}" />
   <Project Name="SystemLinq" Guid="{b573370a-46ac-4401-b9f4-b51a2a61df1b}" />
